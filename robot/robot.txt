@@ -1,0 +1,137 @@
+# -*- coding: utf-8 -*-
+"""
+Made by Arthur Saint Upery and Ewan Maurel
+"""
+
+import time
+import sys
+import os
+import socket
+
+class TCPServer:
+    """Class of the TCP connection"""
+
+    def __init__(self, port=20002):
+        """
+        Initialize server
+
+        Params:\n
+            - 'port': port of the TCP connection
+        """
+
+        try:
+            self.socket = server_socket_open(port)
+            tp_log("Connection ok!")
+        except Exception as e:
+            tp_popup("Socket connection failed. Error {0}".format(str(e)), DR_PM_ALARM)
+            raise e
+
+    def close_socket(self):
+        """ Close the network socket"""
+        try:
+            server_socket_close(self.socket)
+            tp_log("Close the socket")
+        except Exception as e:
+            tp_log("Socket connection was not closed. Error: {0}".format(str(e)))
+            raise e
+
+    def read(self, length=-1, timeout=-1):
+        """
+        Read the socket
+
+        Params:\n
+            - 'length': number of bytes to read (default = -1)
+            - 'timeout': Waiting time (default = -1)
+
+        Return:\n
+            - 'res': result of the reading
+            - 'rx_data': data received
+        """
+        res, rx_data = server_socket_read(self.socket, length, timeout)
+
+        # Check res value
+        if res == -1:
+            tp_log("error " + 
+                "Error during a socket read: Server not connected")
+        elif res == -2:
+            tp_log("error " + "Error during a socket read: Socket error")
+        elif res == -3:
+            tp_log("error " + 
+                "Error during a socket read: Waiting time has expired")
+        elif res > 0:
+            if rx_data != "":
+                tp_log("info" + 
+                    "Read res = {0} and rx_data = {1}".format(res, rx_data))
+                rx_data = rx_data[:-1]
+                rx_data = rx_data.decode()
+
+        return res, rx_data
+
+    def write(self, msg):
+        """
+        Write 'msg' in the socket
+
+        Params:\n
+            - 'msg': a message
+
+        Return:\n
+            - 'res': result of the writing
+        """
+        msg = msg + "\r"
+        # Convert msg in ascii before sending
+        msg = bytes(msg, encoding="ascii")
+
+        res = server_socket_write(self.socket, msg)
+
+        # Check res value
+        if res == -1:
+            tp_log("error " + 
+                "Error during a socket write: Server not connected")
+        elif res == -2:
+            tp_log("error " + "Error during a socket write: Socket error")
+        elif res == 0:
+            tp_log("info" + "Sending {0} command ok".format(msg))
+        return res
+
+    def goto(self, msg_pos):
+        """ goto """
+        tp_log("debug " + "goto")
+        p = [float(elem) for elem in msg_pos]
+        movel(p, vel=80, acc=10)
+        while check_motion() != 0:
+                wait(0.1)
+        self.write("goto,done")
+
+    def sgoto(self, msg_pos):
+        """ slow goto """
+        tp_log("debug " + "goto")
+        p = [float(elem) for elem in msg_pos]
+        movel(p, vel=20, acc=5)
+        while check_motion() != 0:
+                wait(0.1)
+        self.write("sgoto,done")
+
+    def sgotoj(self, msg_posj):
+        """ slow gotoj """
+        tp_log("debug " + "sgotoj")
+        p = [float(elem) for elem in msg_posj]
+        movej(p, vel=2, acc=1)
+        while check_motion() != 0:
+                wait(0.1)
+        self.write("sgotoj,done")
+
+    def gotoj(self, msg_posj):
+        """ gotoj """
+        tp_log("debug " + "gotoj")
+        p = [float(elem) for elem in msg_posj]
+        movej(p, vel=50, acc=50)
+        while check_motion() != 0:
+                wait(0.1)
+        self.write("gotoj,done")
+
+    def get_posx(self):
+        """ get_posx """
+        tp_log("debug " + "get_posx")
+        posx, sol_space = get_current_posx()
+        msg = "posx," + str(posx).replace(']','').replace('[','') + ',' + str(sol_space)
+        self.write(msg)
